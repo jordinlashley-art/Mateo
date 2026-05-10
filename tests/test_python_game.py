@@ -52,5 +52,8 @@ def test_collecting_item_increments_score_and_moves_collectible() -> None:
 def test_player_touches_collectible_uses_player_size_and_radius() -> None:
     player = Player(x=50, y=50, size=20, speed=100)
 
-    assert player_touches_collectible(player, next_collectible(GameConfig(width=228, height=179), 0))
-    assert not player_touches_collectible(player, next_collectible(GameConfig(width=1200, height=900), 1))
+    near_collectible = next_collectible(GameConfig(width=228, height=179), 0)
+    far_collectible = next_collectible(GameConfig(width=1200, height=900), 1)
+
+    assert player_touches_collectible(player, near_collectible)
+    assert not player_touches_collectible(player, far_collectible)

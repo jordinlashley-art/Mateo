@@ -85,7 +85,12 @@ def direction_from_pressed_keys(keys: pygame.key.ScancodeWrapper) -> tuple[float
     return (dx / length, dy / length)
 
 
-def move_player(player: Player, config: GameConfig, direction: tuple[float, float], dt: float) -> Player:
+def move_player(
+    player: Player,
+    config: GameConfig,
+    direction: tuple[float, float],
+    dt: float,
+) -> Player:
     half_size = player.size / 2
     next_x = player.x + direction[0] * player.speed * dt
     next_y = player.y + direction[1] * player.speed * dt
