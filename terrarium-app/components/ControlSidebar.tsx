@@ -1,12 +1,14 @@
 "use client";
 
-import { TerrariumState } from "./TerrariumApp";
+import { TerrariumState, EcosystemDisplayData } from "./TerrariumApp";
+import { EcosystemEvent } from "@/hooks/useEcosystemLogic";
 
 type ShopItem = { name: string; emoji: string; type: "plant" | "organism" };
 type ShopItems = { plants: ShopItem[]; organisms: ShopItem[] };
 
 type Props = {
   state: TerrariumState;
+  ecosystemData: EcosystemDisplayData;
   onSliderChange: (key: "lighting" | "humidity" | "temperature", value: number) => void;
   onAddItem: (name: string, emoji: string, type: "plant" | "organism") => void;
   shopItems: ShopItems;
@@ -58,6 +60,36 @@ const SLIDERS: SliderConfig[] = [
     },
   },
 ];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function ecoHealthColor(score: number): string {
+  if (score > 60) return "#4ade80";
+  if (score > 30) return "#facc15";
+  return "#ef4444";
+}
+
+function ecoHealthLabel(score: number): string {
+  if (score > 80) return "Thriving";
+  if (score > 60) return "Healthy";
+  if (score > 40) return "Stable";
+  if (score > 20) return "Stressed";
+  return "Critical";
+}
+
+function severityColor(severity: EcosystemEvent["severity"]): string {
+  if (severity === "critical") return "#ef4444";
+  if (severity === "warning") return "#facc15";
+  return "#4ade80";
+}
+
+function severityIcon(severity: EcosystemEvent["severity"]): string {
+  if (severity === "critical") return "🔴";
+  if (severity === "warning") return "🟡";
+  return "🟢";
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SliderRow({
   config,
@@ -164,12 +196,93 @@ function ShopButton({
   );
 }
 
+function StatusBadge({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1 py-1">
+      <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+        {label}
+      </span>
+      <span
+        className="text-xs font-bold px-2 py-0.5 rounded-lg"
+        style={{
+          color,
+          background: `${color}18`,
+          border: `1px solid ${color}30`,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function ResourceBar({
+  label,
+  icon,
+  value,
+  max,
+  color,
+}: {
+  label: string;
+  icon: string;
+  value: number;
+  max: number;
+  color: string;
+}) {
+  const pct = Math.min((value / max) * 100, 100);
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1 text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
+          <span>{icon}</span>
+          <span>{label}</span>
+        </span>
+        <span className="text-xs font-mono font-semibold" style={{ color }}>
+          {Math.round(value)}
+        </span>
+      </div>
+      <div
+        style={{
+          height: 4,
+          borderRadius: 9999,
+          background: "rgba(255,255,255,0.08)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${pct}%`,
+            height: "100%",
+            background: color,
+            borderRadius: 9999,
+            transition: "width 0.8s ease",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
+
 export default function ControlSidebar({
   state,
+  ecosystemData,
   onSliderChange,
   onAddItem,
   shopItems,
 }: Props) {
+  const { ecosystemHealth, oxygenLevel, debrisLevel, events, tick } = ecosystemData;
+  const healthColor = ecoHealthColor(ecosystemHealth);
+
   return (
     <div className="h-full flex flex-col gap-4 py-2">
       {/* Header */}
@@ -185,7 +298,79 @@ export default function ControlSidebar({
         </p>
       </div>
 
-      {/* Environment Controls */}
+      {/* ── Ecosystem Health ──────────────────────────────────────────────── */}
+      <div
+        className="shrink-0 rounded-2xl p-4 space-y-3"
+        style={{
+          background: "rgba(255,255,255,0.04)",
+          border: `1px solid ${healthColor}25`,
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <h2
+            className="text-xs font-bold uppercase tracking-widest"
+            style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em" }}
+          >
+            🌍 Ecosystem Health
+          </h2>
+          <span
+            className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg"
+            style={{
+              color: healthColor,
+              background: `${healthColor}18`,
+              border: `1px solid ${healthColor}30`,
+            }}
+          >
+            {ecoHealthLabel(ecosystemHealth)}
+          </span>
+        </div>
+
+        {/* Health gauge */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+              Vitality
+            </span>
+            <span
+              className="text-sm font-bold font-mono"
+              style={{ color: healthColor }}
+            >
+              {Math.round(ecosystemHealth)}
+              <span className="text-xs opacity-60">/100</span>
+            </span>
+          </div>
+          <div
+            style={{
+              height: 8,
+              borderRadius: 9999,
+              background: "rgba(255,255,255,0.08)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${ecosystemHealth}%`,
+                height: "100%",
+                background: `linear-gradient(to right, ${healthColor}cc, ${healthColor})`,
+                borderRadius: 9999,
+                transition: "width 1s ease, background 1s ease",
+                boxShadow: `0 0 8px ${healthColor}60`,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Resource levels */}
+        <ResourceBar label="Oxygen" icon="💨" value={oxygenLevel} max={200} color="#7dd3fc" />
+        <ResourceBar label="Debris" icon="🍂" value={debrisLevel} max={100} color="#d97706" />
+
+        {/* Tick counter */}
+        <p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>
+          Simulation tick #{tick}
+        </p>
+      </div>
+
+      {/* ── Environment Controls ──────────────────────────────────────────── */}
       <div
         className="shrink-0 rounded-2xl p-4 space-y-5"
         style={{
@@ -278,7 +463,7 @@ export default function ControlSidebar({
         />
       </div>
 
-      {/* Shop — Plants */}
+      {/* ── Shop — Plants ─────────────────────────────────────────────────── */}
       <div
         className="rounded-2xl p-4 space-y-3"
         style={{
@@ -303,7 +488,7 @@ export default function ControlSidebar({
         </div>
       </div>
 
-      {/* Shop — Organisms */}
+      {/* ── Shop — Organisms ──────────────────────────────────────────────── */}
       <div
         className="rounded-2xl p-4 space-y-3"
         style={{
@@ -328,6 +513,49 @@ export default function ControlSidebar({
         </div>
       </div>
 
+      {/* ── Event Log ─────────────────────────────────────────────────────── */}
+      {events.length > 0 && (
+        <div
+          className="rounded-2xl p-4 space-y-2"
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.07)",
+          }}
+        >
+          <h2
+            className="text-xs font-bold uppercase tracking-widest"
+            style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.15em" }}
+          >
+            📋 Event Log
+          </h2>
+          <div className="space-y-1.5 max-h-36 overflow-y-auto thin-scroll">
+            {events.map((event) => (
+              <div
+                key={event.id}
+                className="flex items-start gap-2 py-1"
+                style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+              >
+                <span className="text-xs shrink-0 mt-0.5">
+                  {severityIcon(event.severity)}
+                </span>
+                <p
+                  className="text-xs leading-relaxed flex-1"
+                  style={{ color: severityColor(event.severity) }}
+                >
+                  {event.message}
+                </p>
+                <span
+                  className="text-xs shrink-0 font-mono"
+                  style={{ color: "rgba(255,255,255,0.2)" }}
+                >
+                  t{event.tick}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Footer counts */}
       <div
         className="shrink-0 mt-auto rounded-2xl p-3 flex items-center justify-between"
@@ -350,34 +578,6 @@ export default function ControlSidebar({
           Click items to remove
         </span>
       </div>
-    </div>
-  );
-}
-
-function StatusBadge({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-1 py-1">
-      <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-        {label}
-      </span>
-      <span
-        className="text-xs font-bold px-2 py-0.5 rounded-lg"
-        style={{
-          color,
-          background: `${color}18`,
-          border: `1px solid ${color}30`,
-        }}
-      >
-        {value}
-      </span>
     </div>
   );
 }
