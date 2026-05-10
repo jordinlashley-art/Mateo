@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-game-starter"
+version = "0.1.0"
+description = "A starter development environment for a Python game built with Pygame."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pygame"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff"
+]
+
+[project.scripts]
+python-game = "python_game.game:main"
+
+[tool.setuptools.packages.find]
+include = ["python_game*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

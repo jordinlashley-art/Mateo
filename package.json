@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "python3 -m http.server 4173",
-    "test": "node tests/gameLogic.test.mjs"
+    "test": "node tests/gameLogic.test.mjs",
+    "python:run": "python -m python_game",
+    "python:test": "pytest",
+    "python:lint": "ruff check ."
   },
   "license": "UNLICENSED",
   "private": true
