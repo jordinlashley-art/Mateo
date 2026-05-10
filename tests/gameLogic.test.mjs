@@ -1,0 +1,110 @@
+import assert from "node:assert/strict";
+import {
+  BASE_SPEED,
+  ITEM_SPAWNS,
+  SHOP_OBJECTS,
+  SPEED_POWERUP_DURATION_MS,
+  SPEED_POWERUP_MULTIPLIER,
+  canMonsterSeePlayer,
+  collectNearbyItem,
+  createGameState,
+  getActiveSpeed,
+  isInShopWorld,
+  isWalkableWorld,
+  useInventoryItem,
+  useNearbyShopObject
+} from "../src/gameLogic.mjs";
+
+function test(name, fn) {
+  try {
+    fn();
+    console.log(`ok - ${name}`);
+  } catch (error) {
+    console.error(`not ok - ${name}`);
+    throw error;
+  }
+}
+
+test("all items and shop objects spawn where the player can reach them", () => {
+  for (const spawn of ITEM_SPAWNS) {
+    assert.equal(isWalkableWorld(spawn.x, spawn.z), true, `${spawn.id} must be walkable`);
+    assert.equal(isInShopWorld(spawn.x, spawn.z), true, `${spawn.id} must be inside a shop`);
+  }
+
+  for (const object of SHOP_OBJECTS) {
+    assert.equal(isWalkableWorld(object.x, object.z), true, `${object.id} must be walkable`);
+  }
+});
+
+test("collecting a nearby item adds it to inventory once", () => {
+  const state = createGameState();
+  const flashlight = ITEM_SPAWNS.find((item) => item.type === "flashlight");
+  const first = collectNearbyItem(state, flashlight);
+  const second = collectNearbyItem(state, flashlight);
+
+  assert.equal(first.type, "flashlight");
+  assert.equal(second, null);
+  assert.deepEqual(state.inventory, ["flashlight"]);
+});
+
+test("speed power-up is at least twice base speed for 10 seconds", () => {
+  const state = createGameState();
+  state.inventory.push("speed");
+  const now = 1_000;
+  const result = useInventoryItem(state, "speed", now);
+
+  assert.equal(result.ok, true);
+  assert.equal(state.effects.speedUntil, now + SPEED_POWERUP_DURATION_MS);
+  assert.equal(getActiveSpeed(now + 9_999, false, state), BASE_SPEED * SPEED_POWERUP_MULTIPLIER);
+  assert.equal(getActiveSpeed(now + 10_001, false, state), BASE_SPEED);
+});
+
+test("food restores health and stamina without exceeding caps", () => {
+  const state = createGameState();
+  state.health = 75;
+  state.stamina = 68;
+  state.inventory.push("food");
+
+  const result = useInventoryItem(state, "food", 0);
+
+  assert.equal(result.ok, true);
+  assert.equal(state.health, 100);
+  assert.equal(state.stamina, 100);
+});
+
+test("shop objects require specific items and can grant rewards", () => {
+  const state = createGameState();
+  const pharmacy = SHOP_OBJECTS.find((object) => object.id === "locked-pharmacy");
+  const missing = useNearbyShopObject(state, pharmacy, 0);
+  state.inventory.push("flashlight");
+  const used = useNearbyShopObject(state, pharmacy, 0);
+
+  assert.equal(missing.ok, false);
+  assert.equal(used.ok, true);
+  assert.deepEqual(state.inventory, ["food"]);
+});
+
+test("planting C-4 at the pillar resolves the coma nightmare ending", () => {
+  const state = createGameState();
+  const pillar = SHOP_OBJECTS.find((object) => object.id === "service-pillar");
+  state.inventory.push("c4");
+
+  const result = useNearbyShopObject(state, pillar, 0);
+
+  assert.equal(result.ok, true);
+  assert.equal(state.ended, true);
+  assert.match(state.endingText, /coma nightmare/i);
+});
+
+test("hiding in a shop or using a disguise blocks monster vision", () => {
+  const state = createGameState();
+  const player = { x: 10.5, z: 10.5 };
+  const monster = { x: 12, z: 10.5 };
+
+  assert.equal(canMonsterSeePlayer(state, player, monster, 0), true);
+  state.hidden = true;
+  assert.equal(canMonsterSeePlayer(state, player, monster, 0), false);
+  state.hidden = false;
+  state.effects.disguiseUntil = 20_000;
+  assert.equal(canMonsterSeePlayer(state, player, monster, 10_000), false);
+});
