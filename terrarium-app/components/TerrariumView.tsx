@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { TerrariumState, TerrariumItem } from "./TerrariumApp";
+import { TerrariumState, TerrariumItem, EcosystemDisplayData } from "./TerrariumApp";
 
 type Props = {
   state: TerrariumState;
+  ecosystemData: EcosystemDisplayData;
   onRemoveItem: (id: string) => void;
 };
 
@@ -25,8 +26,23 @@ function getHumidityMist(humidity: number): number {
   return Math.max(0, (humidity - 40) / 60);
 }
 
-export default function TerrariumView({ state, onRemoveItem }: Props) {
+/** Map a 0–100 health value to a status color */
+function healthColor(health: number): string {
+  if (health > 60) return "#4ade80";
+  if (health > 30) return "#facc15";
+  return "#ef4444";
+}
+
+/** Ecosystem health → arc color */
+function ecoHealthColor(score: number): string {
+  if (score > 60) return "#4ade80";
+  if (score > 30) return "#facc15";
+  return "#ef4444";
+}
+
+export default function TerrariumView({ state, ecosystemData, onRemoveItem }: Props) {
   const { lighting, humidity, temperature, items } = state;
+  const { ecosystemHealth } = ecosystemData;
 
   const lightGlow = useMemo(() => {
     const intensity = lighting / 100;
@@ -150,66 +166,26 @@ export default function TerrariumView({ state, onRemoveItem }: Props) {
 
         {/* Plants */}
         {plants.map((item) => (
-          <button
+          <EntityButton
             key={item.id}
-            title={`Remove ${item.name}`}
-            onClick={() => onRemoveItem(item.id)}
-            className={`absolute select-none cursor-pointer group ${getItemAnimation(item)}`}
-            style={{
-              left: `${item.x}%`,
-              bottom: `${100 - item.y}%`,
-              animationDelay: `${item.delay}s`,
-              fontSize: item.name === "Fern" ? "2.5rem" : "2rem",
-              lineHeight: 1,
-              filter: `brightness(${0.6 + lighting / 150})`,
-              transition: "filter 0.8s ease",
-              zIndex: 10,
-              background: "none",
-              border: "none",
-              padding: 0,
-            }}
-          >
-            <span className="group-hover:opacity-60 transition-opacity">
-              {item.emoji}
-            </span>
-            <span
-              className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs bg-red-500/80 text-white px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none"
-              style={{ fontSize: "10px" }}
-            >
-              ✕ remove
-            </span>
-          </button>
+            item={item}
+            onRemove={onRemoveItem}
+            lighting={lighting}
+            fontSize={item.name === "Fern" ? "2.5rem" : "2rem"}
+            zIndex={10}
+          />
         ))}
 
         {/* Organisms */}
         {organisms.map((item) => (
-          <button
+          <EntityButton
             key={item.id}
-            title={`Remove ${item.name}`}
-            onClick={() => onRemoveItem(item.id)}
-            className={`absolute select-none cursor-pointer group ${getItemAnimation(item)}`}
-            style={{
-              left: `${item.x}%`,
-              bottom: `${100 - item.y}%`,
-              animationDelay: `${item.delay}s`,
-              fontSize: "1.5rem",
-              lineHeight: 1,
-              zIndex: 15,
-              background: "none",
-              border: "none",
-              padding: 0,
-            }}
-          >
-            <span className="group-hover:opacity-60 transition-opacity">
-              {item.emoji}
-            </span>
-            <span
-              className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs bg-red-500/80 text-white px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none"
-              style={{ fontSize: "10px" }}
-            >
-              ✕ remove
-            </span>
-          </button>
+            item={item}
+            onRemove={onRemoveItem}
+            lighting={lighting}
+            fontSize="1.5rem"
+            zIndex={15}
+          />
         ))}
 
         {/* Temperature display inside terrarium */}
@@ -248,6 +224,51 @@ export default function TerrariumView({ state, onRemoveItem }: Props) {
             {humidity}%
           </span>
         </div>
+
+        {/* Ecosystem Health badge — bottom center of terrarium */}
+        {items.length > 0 && (
+          <div
+            className="absolute bottom-[16%] left-1/2 -translate-x-1/2 pointer-events-none"
+            style={{ zIndex: 20 }}
+          >
+            <div
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full"
+              style={{
+                background: "rgba(0,0,0,0.5)",
+                border: `1px solid ${ecoHealthColor(ecosystemHealth)}40`,
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              <span className="text-xs">🌍</span>
+              <span
+                className="text-xs font-bold font-mono"
+                style={{ color: ecoHealthColor(ecosystemHealth) }}
+              >
+                {Math.round(ecosystemHealth)}
+              </span>
+              {/* Mini health bar */}
+              <div
+                style={{
+                  width: 40,
+                  height: 3,
+                  borderRadius: 9999,
+                  background: "rgba(255,255,255,0.1)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${ecosystemHealth}%`,
+                    height: "100%",
+                    background: ecoHealthColor(ecosystemHealth),
+                    borderRadius: 9999,
+                    transition: "width 0.8s ease, background 0.8s ease",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Empty state hint */}
         {items.length === 0 && (
@@ -288,5 +309,88 @@ export default function TerrariumView({ state, onRemoveItem }: Props) {
         Terrarium View
       </p>
     </div>
+  );
+}
+
+// ─── Entity button with health indicator ─────────────────────────────────────
+
+function EntityButton({
+  item,
+  onRemove,
+  lighting,
+  fontSize,
+  zIndex,
+}: {
+  item: TerrariumItem;
+  onRemove: (id: string) => void;
+  lighting: number;
+  fontSize: string;
+  zIndex: number;
+}) {
+  const isDead = item.health <= 0;
+  const isDistressed = item.health <= 30;
+  const hColor = healthColor(item.health);
+
+  const brightnessFilter = item.type === "plant"
+    ? `brightness(${0.6 + lighting / 150}) grayscale(${isDead ? 1 : isDistressed ? 0.5 : 0})`
+    : `grayscale(${isDead ? 1 : isDistressed ? 0.4 : 0})`;
+
+  return (
+    <button
+      title={`${item.name} — health ${Math.round(item.health)}% · Click to remove`}
+      onClick={() => onRemove(item.id)}
+      className={`absolute select-none cursor-pointer group ${getItemAnimation(item)}`}
+      style={{
+        left: `${item.x}%`,
+        bottom: `${100 - item.y}%`,
+        animationDelay: `${item.delay}s`,
+        fontSize,
+        lineHeight: 1,
+        filter: brightnessFilter,
+        opacity: isDead ? 0.3 : 1,
+        transition: "filter 0.8s ease, opacity 0.8s ease",
+        zIndex,
+        background: "none",
+        border: "none",
+        padding: 0,
+      }}
+    >
+      <span className="group-hover:opacity-60 transition-opacity">
+        {item.emoji}
+      </span>
+
+      {/* Health indicator bar */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "-6px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "26px",
+          height: "3px",
+          borderRadius: 9999,
+          background: "rgba(0,0,0,0.4)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${item.health}%`,
+            height: "100%",
+            background: hColor,
+            borderRadius: 9999,
+            transition: "width 0.8s ease, background 0.8s ease",
+          }}
+        />
+      </div>
+
+      {/* Remove tooltip */}
+      <span
+        className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs bg-red-500/80 text-white px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none"
+        style={{ fontSize: "10px" }}
+      >
+        ✕ remove
+      </span>
+    </button>
   );
 }

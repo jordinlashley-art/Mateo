@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import TerrariumView from "./TerrariumView";
 import ControlSidebar from "./ControlSidebar";
+import { useEcosystemLogic, EcosystemEvent } from "@/hooks/useEcosystemLogic";
+
+// ─── Shared display types (consumed by child components) ─────────────────────
 
 export type TerrariumItem = {
   id: string;
@@ -12,6 +15,8 @@ export type TerrariumItem = {
   x: number;
   y: number;
   delay: number;
+  /** Current health 0–100 from the ecosystem simulation */
+  health: number;
 };
 
 export type TerrariumState = {
@@ -20,6 +25,17 @@ export type TerrariumState = {
   temperature: number;
   items: TerrariumItem[];
 };
+
+/** Subset of ecosystem simulation data surfaced to UI panels */
+export type EcosystemDisplayData = {
+  ecosystemHealth: number;
+  tick: number;
+  oxygenLevel: number;
+  debrisLevel: number;
+  events: EcosystemEvent[];
+};
+
+// ─── Shop catalogue ───────────────────────────────────────────────────────────
 
 const SHOP_ITEMS = {
   plants: [
@@ -32,46 +48,72 @@ const SHOP_ITEMS = {
   ],
 };
 
-let itemCounter = 0;
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function TerrariumApp() {
-  const [state, setState] = useState<TerrariumState>({
-    lighting: 60,
-    humidity: 75,
-    temperature: 22,
-    items: [],
-  });
+  const { state: eco, addPlant, addOrganism, removeEntity, updateEnvironment } =
+    useEcosystemLogic();
+
+  // Adapt ecosystem plants + organisms → flat TerrariumItem list for the view
+  const items: TerrariumItem[] = [
+    ...eco.plants.map(
+      (p): TerrariumItem => ({
+        id: p.id,
+        type: "plant",
+        name: p.name,
+        emoji: p.emoji,
+        x: p.x,
+        y: p.y,
+        delay: p.delay,
+        health: p.health,
+      })
+    ),
+    ...eco.organisms.map(
+      (o): TerrariumItem => ({
+        id: o.id,
+        type: "organism",
+        name: o.name,
+        emoji: o.emoji,
+        x: o.x,
+        y: o.y,
+        delay: o.delay,
+        health: o.health,
+      })
+    ),
+  ];
+
+  const terrariumState: TerrariumState = {
+    lighting: eco.lighting,
+    humidity: eco.humidity,
+    temperature: eco.temperature,
+    items,
+  };
+
+  const ecosystemData: EcosystemDisplayData = {
+    ecosystemHealth: eco.ecosystemHealth,
+    tick: eco.tick,
+    oxygenLevel: eco.oxygenLevel,
+    debrisLevel: eco.debrisLevel,
+    events: eco.events,
+  };
 
   const handleSliderChange = useCallback(
     (key: "lighting" | "humidity" | "temperature", value: number) => {
-      setState((prev) => ({ ...prev, [key]: value }));
+      updateEnvironment(key, value);
     },
-    []
+    [updateEnvironment]
   );
 
   const handleAddItem = useCallback(
     (name: string, emoji: string, type: "plant" | "organism") => {
-      itemCounter += 1;
-      const newItem: TerrariumItem = {
-        id: `${type}-${itemCounter}`,
-        type,
-        name,
-        emoji,
-        x: 10 + Math.random() * 80,
-        y: type === "plant" ? 50 + Math.random() * 35 : 60 + Math.random() * 30,
-        delay: Math.random() * 3,
-      };
-      setState((prev) => ({ ...prev, items: [...prev.items, newItem] }));
+      if (type === "plant") {
+        addPlant(name, emoji);
+      } else {
+        addOrganism(name, emoji);
+      }
     },
-    []
+    [addPlant, addOrganism]
   );
-
-  const handleRemoveItem = useCallback((id: string) => {
-    setState((prev) => ({
-      ...prev,
-      items: prev.items.filter((item) => item.id !== id),
-    }));
-  }, []);
 
   return (
     <div
@@ -93,7 +135,7 @@ export default function TerrariumApp() {
             height: 600,
             top: "10%",
             left: "5%",
-            background: `radial-gradient(circle, hsl(${state.lighting * 1.2 + 40}, 80%, 40%), transparent)`,
+            background: `radial-gradient(circle, hsl(${eco.lighting * 1.2 + 40}, 80%, 40%), transparent)`,
             transition: "background 0.6s ease",
           }}
         />
@@ -104,7 +146,7 @@ export default function TerrariumApp() {
             height: 400,
             bottom: "5%",
             right: "25%",
-            background: `radial-gradient(circle, hsl(200, ${state.humidity}%, 35%), transparent)`,
+            background: `radial-gradient(circle, hsl(200, ${eco.humidity}%, 35%), transparent)`,
             transition: "background 0.6s ease",
           }}
         />
@@ -112,13 +154,18 @@ export default function TerrariumApp() {
 
       {/* Terrarium View — main content */}
       <main className="flex-1 flex items-center justify-center p-6 min-w-0">
-        <TerrariumView state={state} onRemoveItem={handleRemoveItem} />
+        <TerrariumView
+          state={terrariumState}
+          ecosystemData={ecosystemData}
+          onRemoveItem={removeEntity}
+        />
       </main>
 
       {/* Control Sidebar */}
       <aside className="w-80 shrink-0 h-full overflow-y-auto thin-scroll p-4">
         <ControlSidebar
-          state={state}
+          state={terrariumState}
+          ecosystemData={ecosystemData}
           onSliderChange={handleSliderChange}
           onAddItem={handleAddItem}
           shopItems={SHOP_ITEMS}
