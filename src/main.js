@@ -24,7 +24,7 @@ const inventoryEl = document.querySelector("#inventory");
 
 const keys = new Set();
 const messages = [];
-const player = { x: 2, z: 2, angle: 0.38 };
+const player = { x: 7.2, z: 7.2, angle: Math.PI / 4 };
 const monster = { x: -22, z: -18, angle: 0, lastSeenX: player.x, lastSeenZ: player.z };
 const state = window.gameState = {
   inventory: [],

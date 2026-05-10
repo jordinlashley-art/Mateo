@@ -124,7 +124,7 @@ export function isInShopWorld(x, z) {
   return isShopCell(cellFromWorld(x), cellFromWorld(z));
 }
 
-export function collectNearbyItem(state, player, maxDistance = 2.2) {
+export function collectNearbyItem(state, player, maxDistance = 3.2) {
   const item = ITEM_SPAWNS.find((spawn) => !state.collectedIds.has(spawn.id) && distance2d(spawn, player) <= maxDistance);
   if (!item) return null;
 
