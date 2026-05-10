@@ -1,9 +1,12 @@
 "use client";
 
 import { EcosystemState, PlantSpecies, OrganismSpecies, LogEntry, LogLevel } from "@/types/ecosystem";
+import { TimeScale } from "@/hooks/useEcosystemLogic";
 
 type Props = {
   state: EcosystemState;
+  timeScale: TimeScale;
+  onSetTimeScale:   (s: TimeScale) => void;
   onSetLighting:    (v: number) => void;
   onSetHumidity:    (v: number) => void;
   onSetTemperature: (v: number) => void;
@@ -11,7 +14,7 @@ type Props = {
   onAddOrganism: (species: OrganismSpecies) => void;
 };
 
-// ── Ecosystem health colour ────────────────────────────────────────────────────
+// ── Ecosystem health colour / label ───────────────────────────────────────────
 function healthColor(score: number): string {
   if (score >= 70) return "#4ade80";
   if (score >= 40) return "#fbbf24";
@@ -110,7 +113,7 @@ function VitalBar({
   icon: string;
   value: number;
   color: string;
-  invertWarning?: boolean; // true = high value is bad
+  invertWarning?: boolean;
 }) {
   const warn = invertWarning ? value > 65 : value < 35;
   const displayColor = warn ? "#ef4444" : color;
@@ -188,7 +191,47 @@ function ShopButton({ entry, onAdd }: { entry: ShopEntry; onAdd: () => void }) {
   );
 }
 
-// ── Event log entry ────────────────────────────────────────────────────────────
+// ── Time Scale toggle ─────────────────────────────────────────────────────────
+const TIME_SCALES: TimeScale[] = [1, 5, 10];
+
+function TimeScaleToggle({
+  current, onChange,
+}: { current: TimeScale; onChange: (s: TimeScale) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-bold uppercase" style={{ color: "rgba(255,255,255,0.38)", letterSpacing: "0.12em" }}>
+        Speed
+      </span>
+      <div
+        className="flex rounded-xl overflow-hidden flex-1"
+        style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+      >
+        {TIME_SCALES.map((scale) => {
+          const active = scale === current;
+          return (
+            <button
+              key={scale}
+              onClick={() => onChange(scale)}
+              className="flex-1 py-1.5 text-xs font-bold transition-all duration-200"
+              style={{
+                background: active
+                  ? "rgba(74,222,128,0.2)"
+                  : "rgba(255,255,255,0.03)",
+                color: active ? "#4ade80" : "rgba(255,255,255,0.4)",
+                borderRight: scale !== 10 ? "1px solid rgba(255,255,255,0.08)" : "none",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {scale}×
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Log row ────────────────────────────────────────────────────────────────────
 const LOG_ICONS: Record<LogLevel, string> = {
   info: "💬",
   warning: "⚠️",
@@ -199,12 +242,27 @@ const LOG_COLORS: Record<LogLevel, string> = {
   warning: "rgba(251,191,36,0.9)",
   danger: "rgba(239,68,68,0.9)",
 };
+const LOG_BG: Record<LogLevel, string> = {
+  info: "rgba(74,222,128,0.05)",
+  warning: "rgba(251,191,36,0.05)",
+  danger: "rgba(239,68,68,0.06)",
+};
 
 function LogRow({ entry }: { entry: LogEntry }) {
   return (
-    <div className="flex items-start gap-2 text-xs leading-snug">
-      <span className="shrink-0 mt-px">{LOG_ICONS[entry.level]}</span>
-      <span style={{ color: LOG_COLORS[entry.level] }}>{entry.message}</span>
+    <div
+      className="flex items-start gap-2 px-2 py-1.5 rounded-lg"
+      style={{ background: LOG_BG[entry.level] }}
+    >
+      <span className="shrink-0 mt-px text-xs">{LOG_ICONS[entry.level]}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs leading-snug" style={{ color: LOG_COLORS[entry.level] }}>
+          {entry.message}
+        </p>
+        <p className="text-xs mt-0.5 font-mono" style={{ color: "rgba(255,255,255,0.2)" }}>
+          tick {entry.tick}
+        </p>
+      </div>
     </div>
   );
 }
@@ -235,7 +293,6 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
   );
 }
 
-// ── Status badge ───────────────────────────────────────────────────────────────
 function StatusBadge({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="flex flex-col items-center gap-1 py-1">
@@ -252,33 +309,35 @@ function StatusBadge({ label, value, color }: { label: string; value: string; co
 
 // ── Main sidebar ───────────────────────────────────────────────────────────────
 export default function ControlSidebar({
-  state, onSetLighting, onSetHumidity, onSetTemperature, onAddPlant, onAddOrganism,
+  state, timeScale, onSetTimeScale,
+  onSetLighting, onSetHumidity, onSetTemperature,
+  onAddPlant, onAddOrganism,
 }: Props) {
   const { environment, ecosystemHealth, log, plants, organisms } = state;
   const ehColor = healthColor(ecosystemHealth);
   const ehLabel = healthLabel(ecosystemHealth);
 
-  const lightLabel  = environment.lighting  < 20 ? "Dark"  : environment.lighting  < 50 ? "Dim"   : environment.lighting  < 80 ? "Bright" : "Full";
-  const mistLabel   = environment.humidity  < 40 ? "Dry"   : environment.humidity  < 65 ? "Low"   : environment.humidity  < 85 ? "Moist"  : "Misty";
-  const tempLabel   = environment.temperature < 15 ? "Cold" : environment.temperature > 28 ? "Hot"  : "Ideal";
+  const lightLabel = environment.lighting  < 20 ? "Dark"  : environment.lighting  < 50 ? "Dim"   : environment.lighting  < 80 ? "Bright" : "Full";
+  const mistLabel  = environment.humidity  < 40 ? "Dry"   : environment.humidity  < 65 ? "Low"   : environment.humidity  < 85 ? "Moist"  : "Misty";
+  const tempLabel  = environment.temperature < 15 ? "Cold" : environment.temperature > 28 ? "Hot"  : "Ideal";
 
   const lightBadgeColor = environment.lighting < 20 ? "#475569" : environment.lighting < 50 ? "#a78bfa" : "#fbbf24";
   const mistBadgeColor  = environment.humidity < 40 ? "#92400e" : environment.humidity < 65 ? "#60a5fa" : "#38bdf8";
   const tempBadgeColor  = environment.temperature < 15 ? "#60c8ff" : environment.temperature > 28 ? "#ef4444" : "#34d399";
 
   const PLANTS: Array<{ name: PlantSpecies; emoji: string; description: string }> = [
-    { name: "Moss",  emoji: "🌿", description: "Low light · high humidity · hardy" },
-    { name: "Fern",  emoji: "🌱", description: "Medium light · needs moisture" },
+    { name: "Moss",  emoji: "🌿", description: "Low–medium light · high humidity · slow O₂" },
+    { name: "Fern",  emoji: "🌱", description: "Medium light · needs moisture · fast growth" },
   ];
   const ORGANISMS: Array<{ name: OrganismSpecies; emoji: string; description: string }> = [
-    { name: "Isopod",     emoji: "🦗", description: "Eats plant debris · reduces waste" },
-    { name: "Springtail", emoji: "🪲", description: "Eats mold · thrives in humidity" },
+    { name: "Isopod",     emoji: "🦗", description: "Eats decaying plants · boosts soil quality" },
+    { name: "Springtail", emoji: "🪲", description: "Prevents mold · thrives in high humidity" },
   ];
 
   return (
     <div className="h-full flex flex-col gap-4 py-2">
 
-      {/* ── Header + Ecosystem Health ──────────────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="shrink-0">
         <h1 className="text-lg font-bold tracking-tight" style={{ color: "rgba(255,255,255,0.92)" }}>
           🌿 Terrarium OS
@@ -288,7 +347,7 @@ export default function ControlSidebar({
         </p>
       </div>
 
-      {/* Ecosystem health bar */}
+      {/* ── Ecosystem health bar ───────────────────────────────────────────── */}
       <div
         className="shrink-0 rounded-2xl p-4 space-y-2"
         style={{
@@ -319,6 +378,30 @@ export default function ControlSidebar({
         </p>
       </div>
 
+      {/* ── Simulation speed ───────────────────────────────────────────────── */}
+      <div
+        className="shrink-0 rounded-2xl px-4 py-3"
+        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm">⏱️</span>
+              <SectionHeader>Simulation Speed</SectionHeader>
+            </div>
+            <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>
+              tick #{state.tickCount}
+            </span>
+          </div>
+          <TimeScaleToggle current={timeScale} onChange={onSetTimeScale} />
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.22)" }}>
+            {timeScale === 1 && "1 tick every 2 s — standard pace"}
+            {timeScale === 5 && "5× faster — tick every 0.4 s"}
+            {timeScale === 10 && "10× faster — rapid simulation"}
+          </p>
+        </div>
+      </div>
+
       {/* ── Environment sliders ────────────────────────────────────────────── */}
       <Card className="shrink-0">
         <SectionHeader>Environment</SectionHeader>
@@ -327,7 +410,13 @@ export default function ControlSidebar({
             key={cfg.key}
             config={cfg}
             value={environment[cfg.key]}
-            onChange={cfg.key === "lighting" ? onSetLighting : cfg.key === "humidity" ? onSetHumidity : onSetTemperature}
+            onChange={
+              cfg.key === "lighting"
+                ? onSetLighting
+                : cfg.key === "humidity"
+                ? onSetHumidity
+                : onSetTemperature
+            }
           />
         ))}
       </Card>
@@ -343,8 +432,8 @@ export default function ControlSidebar({
           <StatusBadge label="Temp"   value={tempLabel}   color={tempBadgeColor} />
         </div>
         <div className="space-y-2.5 pt-1">
-          <VitalBar label="Oxygen"   icon="🌬️" value={environment.oxygen}   color="#60a5fa" />
-          <VitalBar label="Waste"    icon="💩" value={environment.waste}    color="#fbbf24" invertWarning />
+          <VitalBar label="Oxygen"    icon="🌬️" value={environment.oxygen}   color="#60a5fa" />
+          <VitalBar label="Waste"     icon="💩" value={environment.waste}    color="#fbbf24" invertWarning />
           <VitalBar label="Mold Risk" icon="🍄" value={environment.moldRisk} color="#c084fc" invertWarning />
         </div>
       </div>
@@ -373,20 +462,31 @@ export default function ControlSidebar({
         ))}
       </Card>
 
-      {/* ── Event log ──────────────────────────────────────────────────────── */}
+      {/* ── Event Logs ─────────────────────────────────────────────────────── */}
       <div
-        className="rounded-2xl p-4 space-y-2.5"
+        className="rounded-2xl p-4 space-y-2"
         style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
       >
-        <SectionHeader>📋 Events</SectionHeader>
+        <div className="flex items-center justify-between mb-1">
+          <SectionHeader>📋 Logs</SectionHeader>
+          <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.06)" }}>
+            {log.length}
+          </span>
+        </div>
+
         {log.length === 0 ? (
           <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
             No events yet.
           </p>
         ) : (
-          log.slice(0, 7).map((entry: LogEntry) => (
-            <LogRow key={entry.id} entry={entry} />
-          ))
+          <div
+            className="space-y-1 overflow-y-auto thin-scroll"
+            style={{ maxHeight: "14rem" }}
+          >
+            {log.map((entry: LogEntry) => (
+              <LogRow key={entry.id} entry={entry} />
+            ))}
+          </div>
         )}
       </div>
 
@@ -398,10 +498,10 @@ export default function ControlSidebar({
         <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
           <span className="font-semibold" style={{ color: "rgba(255,255,255,0.65)" }}>
             {plants.length}
-          </span> plants ·{" "}
+          </span>{" "}plants ·{" "}
           <span className="font-semibold" style={{ color: "rgba(255,255,255,0.65)" }}>
             {organisms.length}
-          </span> organisms
+          </span>{" "}organisms
         </span>
         <span className="text-xs" style={{ color: "rgba(255,255,255,0.22)" }}>
           Click items to remove

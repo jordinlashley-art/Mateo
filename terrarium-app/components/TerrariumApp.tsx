@@ -5,8 +5,8 @@ import TerrariumView from "./TerrariumView";
 import ControlSidebar from "./ControlSidebar";
 
 export default function TerrariumApp() {
-  const ecosystem = useEcosystemLogic(2000);
-  const { state } = ecosystem;
+  const ecosystem = useEcosystemLogic();
+  const { state, timeScale, setTimeScale } = ecosystem;
   const { lighting, humidity } = state.environment;
 
   return (
@@ -54,6 +54,8 @@ export default function TerrariumApp() {
       <aside className="w-80 shrink-0 h-full overflow-y-auto thin-scroll p-4">
         <ControlSidebar
           state={state}
+          timeScale={timeScale}
+          onSetTimeScale={setTimeScale}
           onSetLighting={ecosystem.setLighting}
           onSetHumidity={ecosystem.setHumidity}
           onSetTemperature={ecosystem.setTemperature}
