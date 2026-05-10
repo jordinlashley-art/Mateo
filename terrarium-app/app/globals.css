@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0d1117;
+  --background: #080e08;
   --foreground: #e6edf3;
+  --accent-green: #4ade80;
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {
@@ -34,13 +37,14 @@ input[type="range"]::-webkit-slider-thumb {
   height: 18px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 6px rgba(0,0,0,0.4);
+  box-shadow: 0 0 8px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,255,255,0.15);
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+  transform: scale(1.25);
+  box-shadow: 0 0 12px rgba(255,255,255,0.3), 0 0 0 3px rgba(255,255,255,0.25);
 }
 
 input[type="range"]::-moz-range-thumb {
@@ -49,7 +53,7 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 50%;
   background: #fff;
   border: none;
-  box-shadow: 0 0 6px rgba(0,0,0,0.4);
+  box-shadow: 0 0 8px rgba(0,0,0,0.5);
   cursor: pointer;
 }
 
@@ -87,6 +91,21 @@ input[type="range"]::-moz-range-thumb {
   100% { background-position: 200% center; }
 }
 
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .animate-float {
   animation: float 4s ease-in-out infinite;
 }
@@ -108,7 +127,15 @@ input[type="range"]::-moz-range-thumb {
   animation: mist 5s ease-in-out infinite;
 }
 
-/* Glass morphism */
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+/* Glass morphism variants */
 .glass {
   background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(20px);
@@ -117,10 +144,17 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .glass-strong {
-  background: rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.glass-panel {
+  background: rgba(10, 20, 10, 0.55);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(74, 222, 128, 0.1);
 }
 
 /* Scrollbar for organism/plant list */
@@ -131,6 +165,26 @@ input[type="range"]::-moz-range-thumb {
   background: transparent;
 }
 .thin-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.12);
   border-radius: 9999px;
+}
+.thin-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+/* Section header accent line */
+.section-accent {
+  position: relative;
+  padding-left: 10px;
+}
+.section-accent::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 12px;
+  border-radius: 9999px;
+  background: currentColor;
 }
